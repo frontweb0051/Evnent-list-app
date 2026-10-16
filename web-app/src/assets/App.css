@@ -698,6 +698,55 @@ button { cursor: pointer; border: none; background: none; }
 .empty-icon { font-size: 44px; margin-bottom: 12px; }
 .events-empty p { font-size: 15px; }
 
+/* ── Page: Not Found ─────────────────────────────────────────── */
+.not-found-page {
+  display: grid;
+  min-height: min(68vh, 680px);
+  align-items: center;
+  padding: 64px 0;
+  background:
+    radial-gradient(ellipse at 50% 42%, rgba(232, 183, 91, .12), transparent 48%),
+    var(--bg);
+}
+.not-found-card {
+  max-width: 620px;
+  margin: 0 auto;
+  padding: clamp(32px, 7vw, 64px) 24px;
+  text-align: center;
+}
+.not-found-code {
+  margin: 0;
+  color: var(--navy);
+  font-family: 'Outfit', sans-serif;
+  font-size: clamp(88px, 20vw, 156px);
+  font-weight: 700;
+  letter-spacing: -.08em;
+  line-height: .9;
+  opacity: .1;
+}
+.not-found-eyebrow {
+  margin: 10px 0 12px;
+  color: var(--amber);
+  font-family: 'Outfit', sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .16em;
+}
+.not-found-title {
+  margin: 0;
+  color: var(--navy);
+  font-size: clamp(22px, 4vw, 30px);
+  font-weight: 700;
+  line-height: 1.5;
+}
+.not-found-description {
+  margin: 12px 0 28px;
+  color: var(--text-2);
+  font-size: 15px;
+  line-height: 1.8;
+}
+.not-found-link { text-decoration: none; }
+
 /* ── Page: Event Detail ─────────────────────────────────────── */
 .back-link {
   display: inline-flex;
