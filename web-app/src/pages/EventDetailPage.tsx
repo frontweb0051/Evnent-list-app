@@ -3,34 +3,76 @@ import { useParams, Link } from "react-router"
 import ContactForm from "@/components/ContactForm"
 import { getEvent } from "@/api/event"
 import { formatDateJa, formatTimeRange } from "@/lib/format"
+import { getAvailability } from "@/lib/availability";
 import type { EventDetail } from "@/types/event"
 
 export default function EventDetailPage () {
-  const { id }  = useParams<string>();
+  const { id } = useParams();
   const [eventItem, setEventItem] = useState<EventDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
 
-
-  const fetchEventDetail = async () => {
+  const reloadEvent = async () => {
     try {
-      const data = await getEvent(Number(id))
-      setEventItem(data)
-    }catch (err) {
-      console.error(`エラーが発生しました。${err}`)
-    }finally {
-      setIsLoading(false)
+      const data = await getEvent(Number(id));
+      setEventItem(data);
+    } catch(err) {
+      console.error(`再取得に失敗しました${err}`);
     }
   }
 
+  useEffect(() => {
+    // この取得が「古くなった」ときに true にする目印(idが変わったとき等)
+    let ignore = false;
 
-  useEffect(()=> {
+    const fetchEventDetail = async () => {
+      setIsLoading(true);
+      setHasError(false);
+
+      try {
+        const data = await getEvent(Number(id));
+        if (!ignore) {
+          setEventItem(data);
+        }
+      } catch (err) {
+        console.error(`エラーが発生しました。${err}`);
+        if (!ignore) {
+          setHasError(true);
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      }
+    };
+
     fetchEventDetail();
-  },[id])
-  if (isLoading) return <p>読み込み中...</p>;
-  if (!eventItem) return <p>詳細情報がありません</p>;
 
-  const percentFilled = ((eventItem.capacity - eventItem.remaining) / eventItem.capacity) * 100;
+    // idが変わる前に実行される後片付け
+    return () => {
+      ignore = true;
+    };
+  }, [id]);
 
+  if (isLoading) {
+    return <p>読み込み中...</p>;
+  }
+
+  if (hasError) {
+    return <p>読み込みに失敗しました。時間をおいて、もう一度お試しください。</p>;
+  }
+
+  if (eventItem === null) {
+    return (
+      <div className="container">
+        <p>イベントが見つかりません。</p>
+        <Link to="/">イベント一覧に戻る</Link>
+      </div>
+    );
+  }
+
+  const availability = getAvailability(eventItem.capacity, eventItem.remaining);
+  
   return (
     <div className="container">
       <Link to={"/"} className="back-link">
@@ -48,9 +90,8 @@ export default function EventDetailPage () {
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true">
                   <circle cx="5" cy="5" r="4"/>
                 </svg>
-                {eventItem.remaining <= 0 ? "満員" : "募集中"}
+                { availability.label }
               </span>
-              <span className="badge badge-navy">もくもく会</span>
             </div>
             <h1 className="detail-title">{eventItem.title}</h1>
 
@@ -114,7 +155,10 @@ export default function EventDetailPage () {
                 <div>
                   <div className="meta-lbl">参加費</div>
                   <div className="meta-val">
-                    <span className="meta-val-num">{ eventItem.participation_fee === 0 ? "参加費無料" : `${eventItem.participation_fee}円` }</span>
+                    <span className="meta-val-num">
+                      {/* toLocaleString() : 1000を1,000のようにしてくれる */}
+                      { eventItem.participation_fee === 0 ? "参加費無料" : `${eventItem.participation_fee.toLocaleString()}円` }
+                      </span>
                   </div>
                 </div>
               </div>
@@ -126,7 +170,7 @@ export default function EventDetailPage () {
                 <span className="cap-nums"><strong>{ eventItem.remaining }</strong> / { eventItem.capacity } 名</span>
               </div>
               <div className="cap-track">
-                <div className="cap-fill near" style={{width: `${percentFilled}%`}}></div>
+                <div className={`cap-fill ${availability.level}`} style={{ width: `${availability.percentFilled}%` }}></div>
               </div>
             </div>
           </div>
@@ -141,7 +185,11 @@ export default function EventDetailPage () {
           </div>
         </div>
 
-        <ContactForm contactId={eventItem.id} remaining={eventItem.remaining}/>
+        <ContactForm 
+          contactId={eventItem.id} 
+          remaining={eventItem.remaining}
+          onApplied={reloadEvent}
+        />
 
       </div>
     </div>

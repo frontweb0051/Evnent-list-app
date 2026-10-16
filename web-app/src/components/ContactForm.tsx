@@ -1,19 +1,21 @@
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { applyToEvent, ApiError } from "@/api/event";
 import {validate, type FormValues, type FormErrors } from "@/lib/varidate";
 
 type ContactFormProps = {
   contactId: number;
   remaining: number;
+  onApplied: () => void;
 }
 type Status = "idle" | "submitting" | "sucsess";
 
+const MAX_GUESTS = 10;
 
-export default function ContactForm ({contactId, remaining}:ContactFormProps) {
+export default function ContactForm ({contactId, remaining, onApplied}:ContactFormProps) {
   const [values, setValues] = useState<FormValues>({
     name: "",
     email: "",
-    guests: "",
+    guests: "1",
     note: "",
     _hp: "",
   });
@@ -21,8 +23,22 @@ export default function ContactForm ({contactId, remaining}:ContactFormProps) {
   const [status, setStatus] = useState<Status>("idle");
   const [formError, setFormError] = useState("");
   const isFull = remaining <= 0;
-  const MAX_GUESTS = 10;
 
+  // useState の並びの下あたりに追加
+  useEffect(function () {
+    console.log("ContactForm: 画面に出た");
+    return function () {
+      console.log("ContactForm: 画面から消えた");
+    };
+}, []);
+
+  // Math.min() : 値を比較して最小の値を返り値とする。
+  // MAX_GUESTSを設定しておくことおでremainingで上限を超える値が入力されても、MAX_GUESTSが最小の値として返り値となる
+  const maxGuests = Math.min(remaining, MAX_GUESTS);
+  const guestOptions: number[] = [];
+  for (let i = 1; i <= maxGuests; i++) {
+    guestOptions.push(i);
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -52,26 +68,23 @@ export default function ContactForm ({contactId, remaining}:ContactFormProps) {
         _hp: values._hp,
       })
       setStatus("sucsess");
+      onApplied();
     }  catch (err) {
       setStatus("idle");
       if (err instanceof ApiError) {
         console.log("申込失敗:", err.status, err.code, err.message, err.fields);
+
+        // サーバー側の検証エラーは、項目ごとに表示する
+        if (err.code === "VALIDATION_ERROR") {
+          setErrors(err.fields);
+        }
+        // 画面下に出す全体のメッセージ(満員・重複申込など)
         setFormError(err.message);
       } else {
         setFormError("通信に失敗しました。時間をおいてもう一度お試したください");
       }
     }
   };
-
-  // 1 〜 min(残り枠, 上限) の選択肢
-  const guestOptions:number[] = [];
-  // Math.min() : 値を比較して最小の値を返り値とする。
-  // MAX_GUESTSを設定しておくことおでremainingで上限を超える値が入力されても、MAX_GUESTSが最小の値として返り値となる
-  const max = Math.min(remaining, MAX_GUESTS);
-  for(let i = 1; i <= max; i++) {
-    guestOptions.push(i);
-  }
-
 
   // 成功時の画面
   if (status === "sucsess") {
@@ -128,9 +141,8 @@ export default function ContactForm ({contactId, remaining}:ContactFormProps) {
               aria-invalid={errors.name ? true : undefined}
               required
             />
-            <span className="form-errmsg" id="err-name">お名前を入力してください（100文字以内）</span>
             {/* && : 左がtrueであれば右を出力する */}
-            {errors.name && <span className="form-errmsg" id="err-name" role="alert">{errors.name}</span>}
+            {errors.name && <span className="form-errmsg show" id="err-name" role="alert">{errors.name}</span>}
           </div>
 
           <div className="form-group">
@@ -149,8 +161,7 @@ export default function ContactForm ({contactId, remaining}:ContactFormProps) {
               value={values.email}
               required
             />
-            <span className="form-errmsg" id="err-email">正しいメールアドレスを入力してください</span>
-            {errors.email && <span className="form-errmsg" id="err-email" role="alert">{errors.email}</span>}
+            {errors.email && <span className="form-errmsg show" id="err-email" role="alert">{errors.email}</span>}
 
           </div>
 
@@ -165,7 +176,7 @@ export default function ContactForm ({contactId, remaining}:ContactFormProps) {
                 </option>
               ))}
             </select>
-            <span className="form-errmsg" id="err-guests">参加人数を選択してください</span>
+            <span className={`form-errmsg ${formError != "" ? 'show' : ""}`} id="err-guests">参加人数を選択してください</span>
             <p className="form-hint">本人を含む合計人数をお選びください</p>
           </div>
 
@@ -186,29 +197,20 @@ export default function ContactForm ({contactId, remaining}:ContactFormProps) {
           </div>
 
           <div className="reg-footer">
-            <button type="submit" className="btn btn-primary btn-full btn-lg" id="submit-btn">
-              申し込む
+            {formError && <p className={`form-errmsg ${formError != "" ? 'show' : ""}`} role="alert">{formError}</p>}
+            <button 
+              type="submit" 
+              className="btn btn-primary btn-full btn-lg" 
+              id="submit-btn"
+              disabled={status === "submitting"}
+            >
+              {status === "submitting" ? "送信中..." : "申し込む"}
             </button>
             <p className="privacy-note">
               送信することで<a href="#">プライバシーポリシー</a>に同意したものとみなされます。
             </p>
           </div>
-
         </form>
-
-        <div className="reg-success" id="reg-success">
-          <div className="success-icon" aria-hidden="true">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
-              <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          <h3>お申し込みを受け付けました</h3>
-          <p>
-            ご登録のメールアドレスに確認メールをお送りします。<br />
-            当日お越しをお待ちしております。
-          </p>
-        </div>
-
       </div>
     </aside>
   )

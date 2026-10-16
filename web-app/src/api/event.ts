@@ -16,7 +16,7 @@ export async function getEventList(params: EventSearchParams = {}): Promise<Even
   const query_check = query ? `?${query}` : "";
   const res = await fetch(`/api/events${query_check}`);
   if (!res.ok) {
-    throw new Error("記事の取得に失敗しました。");
+    throw new Error("イベントの取得に失敗しました。");
   }
   // res.json()の返り値はPromiseなのでawaitをつけて返ってきたPromiseの値を取得する処理を追加
   const json = await res.json();
@@ -25,8 +25,13 @@ export async function getEventList(params: EventSearchParams = {}): Promise<Even
 
 export async function getEvent(id: number): Promise<EventDetail | null> {
   const res = await fetch(`/api/events/${id}`);
+
+  // 存在しないイベントは、エラーではなく null として返す
+  if (res.status === 404) {
+    return null;
+  }
   if (!res.ok) {
-    throw new Error("記事の取得に失敗しました。")
+    throw new Error("イベントの取得に失敗しました。")
   }
   const json = await res.json();
   return json.data;
