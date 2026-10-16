@@ -94,3 +94,69 @@ function createParticipant(
     throw $e;
   }
 }
+
+function cancelParaticipant(PDO $pdo, string $token):string {
+  $pdo->beginTransaction();
+  
+  // ((p.event_date + p.start_time) <= (not() AT TIME ZONE 'Asia/Tokyo')) AS has_started
+  // 日付と時間を合体させて現在の日付より過去のものか判別。返り値はboolean
+  try {
+    $stmt = $pdo->prepare(
+      "SELECT 
+        p.id, 
+        p.event_id, 
+        p.status, 
+        p.guests,
+        ((p.event_date + p.start_time) <= (now() AT TIME ZONE 'Asia/Tokyo')) AS has_started
+      FROM participants p
+      JOIN events e ON e.id = p.event_id
+      WHERE p.cancel_token = :token
+      FOR UPDATE of p"
+    );
+    $stmt->execute([':token' => $token]);
+    $paraticipant = $stmt->fetch();
+
+    if ($paraticipant === false) {
+      $pdo->rollBack();
+      return "not_found";
+    } 
+
+    if ($paraticipant['status'] === "cancelled") {
+      $pdo->rollBack();
+      return 'already_cancelled';
+    }
+
+    // 応募人数を取得する
+    $paraticipantId = (int) $paraticipant['id'];
+    $eventId = (int) $paraticipant['event_id'];
+    $guests = (int) $paraticipant['guests'];
+
+    $stmt = $pdo->prepare(
+      'UPDATE participants SET status = :status WHERE id = :id'
+    );
+    $stmt->execute([':status' => 'cancelled', ':id' => $id]);
+
+    $stmt = $pdo->prepare(
+      'UPDATE events SET remaining = remaining + :guests, updated_at = now() WHERE id = :event_id'
+    );
+    $stmt->execute([':guests' => $guests, ':event_id' => $eventId]);
+    $pdo->commit();
+
+    return 'ok';
+  } catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+      $pdo->rollBack();
+    }
+    throw $e;
+  }
+}
+
+// function findParticipantByToken(PDO $pdo, string $token):?array {
+//   $pdo->beginTransaction();
+  
+//   try {
+//     $pdo->prepare(
+//       ''
+//     )
+//   }
+// }
