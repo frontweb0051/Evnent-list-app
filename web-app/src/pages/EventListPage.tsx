@@ -7,23 +7,27 @@ import type { EventSummary } from "@/types/event"
 
 function Home () {
   const [eventList, setEventList] = useState<EventSummary[]>([]);
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   const [params, setParams] = useState<EventSearchParams>({});
   const [totalCount, setTotalCount] = useState(0);
 
   // 検索条件が変わるたびに記事取得
   useEffect(()=> {
+    // 取得の最初に、「読み込み中」にして、エラーを消す
+    setIsLoading(true);
+    setHasError(false);
     let ignore = false;
 
     const fetchEventList = async () => {
       try {
         const response = await getEventList(params);
         if (!ignore) setEventList(response);
-        if (!ignore) setIsLoading(true);
       } catch (err) {
         console.error(`エラー：記事が取得できませんでした。${err}`);
+        if (!ignore) setHasError(true);
       } finally {
-        setIsLoading(false);
+        if (!ignore) setIsLoading(false);
       }
     }  
     fetchEventList();
@@ -49,6 +53,11 @@ function Home () {
     };
   }, []);
 
+  const handleRetry = () => {
+    const newParams: EventSearchParams = { q:params.q, from:params.from}
+    setParams(newParams);
+  }
+
   return (
     <>
       <section className="hero">
@@ -71,7 +80,23 @@ function Home () {
 
       <Filter onSearch={setParams}/>
 
-      <EventList list={ eventList } />
+      {isLoading && (
+          <div className="container">
+            <p>読み込み中...</p>
+          </div>
+      )}
+
+      {!isLoading && hasError && (
+        <div className="container">
+          <p>イベントの読み込みに失敗しました。</p>
+          <button type="button" className="btn" onClick={handleRetry}>
+            もう一度読み込む
+          </button>
+        </div>
+      )}
+      {!isLoading && !hasError && (
+        <EventList list={ eventList } />
+      )}
     </>
   )
 }

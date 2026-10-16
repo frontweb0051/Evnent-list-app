@@ -1,6 +1,8 @@
 import { Link } from "react-router";
 import type { EventSummary } from "@/types/event"
 import { formatMonthEn, formatDay, formatWeekdayJa, formatTimeRange } from "@/lib/format"
+import { getAvailability } from "@/lib/availability";
+
 
 export const EventList: React.FC<{ list: EventSummary[]}> = ({ list }) => {
   const totalCount = list.length
@@ -27,8 +29,16 @@ export const EventList: React.FC<{ list: EventSummary[]}> = ({ list }) => {
 }
 
 const EventItem: React.FC<{ item: EventSummary }> = ({item}) => {
+  const availability = getAvailability(item.capacity, item.remaining);
+  let cardClass = "event-card";
+  let badgeClass = "badge badge-amber";
+  if (availability.isFull) {
+    cardClass = "event-card is-Full";
+    badgeClass = "badge badge-navy";
+  }
+
   return (
-    <article className="event-card">
+    <article className={cardClass}>
       <Link to={`/events/${item.id}`}>
         <div className="card-top">
           <div className="card-cal">
@@ -39,7 +49,7 @@ const EventItem: React.FC<{ item: EventSummary }> = ({item}) => {
             <div className="card-time">{formatTimeRange(item.start_time, item.end_time)}</div>
             <div className="card-dow">{formatWeekdayJa(item.event_date)}</div>
           </div>
-          <span className="badge badge-amber" style={{marginLeft: 'auto'}}>残り{ item.remaining }枠</span>
+          <span className={badgeClass} style={{marginLeft: 'auto'}}>{availability.label}</span>
         </div>
         <div className="card-body">
           <h3 className="card-title">{ item.title }</h3>
