@@ -95,7 +95,7 @@ function createParticipant(
   }
 }
 
-function cancelParaticipant(PDO $pdo, string $token):string {
+function cancelParticipant(PDO $pdo, string $token):string {
   $pdo->beginTransaction();
   
   // ((p.event_date + p.start_time) <= (not() AT TIME ZONE 'Asia/Tokyo')) AS has_started
@@ -107,7 +107,7 @@ function cancelParaticipant(PDO $pdo, string $token):string {
         p.event_id, 
         p.status, 
         p.guests,
-        ((p.event_date + p.start_time) <= (now() AT TIME ZONE 'Asia/Tokyo')) AS has_started
+        ((e.event_date + e.start_time) <= (now() AT TIME ZONE 'Asia/Tokyo')) AS has_started
       FROM participants p
       JOIN events e ON e.id = p.event_id
       WHERE p.cancel_token = :token
@@ -126,6 +126,11 @@ function cancelParaticipant(PDO $pdo, string $token):string {
       return 'already_cancelled';
     }
 
+    if ($paraticipant['has_started'] === true) {
+      $pdo->rollBack();
+      return 'event_started';
+    }
+
     // 応募人数を取得する
     $paraticipantId = (int) $paraticipant['id'];
     $eventId = (int) $paraticipant['event_id'];
@@ -134,7 +139,7 @@ function cancelParaticipant(PDO $pdo, string $token):string {
     $stmt = $pdo->prepare(
       'UPDATE participants SET status = :status WHERE id = :id'
     );
-    $stmt->execute([':status' => 'cancelled', ':id' => $id]);
+    $stmt->execute([':status' => 'cancelled', ':id' => $paraticipantId]);
 
     $stmt = $pdo->prepare(
       'UPDATE events SET remaining = remaining + :guests, updated_at = now() WHERE id = :event_id'
@@ -151,12 +156,29 @@ function cancelParaticipant(PDO $pdo, string $token):string {
   }
 }
 
-// function findParticipantByToken(PDO $pdo, string $token):?array {
-//   $pdo->beginTransaction();
-  
-//   try {
-//     $pdo->prepare(
-//       ''
-//     )
-//   }
-// }
+function findParticipantByToken(PDO $pdo, string $token): ?array {
+  $stmt = $pdo->prepare(
+    "SELECT
+      e.id,
+      e.title,
+      e.event_date,
+      e.start_time,
+      e.end_time,
+      e.venue_name,
+      p.name,
+      p.guests,
+      p.status,
+      ((e.event_date + e.start_time) <= (now() AT TIME ZONE 'Asia/Tokyo')) AS has_started
+    FROM participants p
+    JOIN events e ON e.id = p.event_id
+    WHERE p.cancel_token = :token"
+  );
+  $stmt->execute([':token' => $token]);
+  $row = $stmt->fetch();
+
+  if ($row === false) {
+      return null;
+  }
+
+  return $row;
+}

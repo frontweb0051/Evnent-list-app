@@ -184,6 +184,36 @@ try {
     respond(['message' => '申し込みを受け付けました'], 201);
   }
 
+  // キャンセル画面
+  if ($method === 'GET' && preg_match('#^/api/participants/([0-9a-f]{64})$#', $path, $matches)) {
+    $token = (string) $matches[1];
+    $paraticipant = findParticipantByToken($pdo, $token);
+
+    if ($paraticipant === null) {
+      respondError("NOT_FOUND", "申込みが見つかりません", 404);
+    }
+
+    respond($paraticipant);
+  } 
+
+  // キャンセル送信
+  if ($method === 'POST' && preg_match('#^/api/participants/([0-9a-f]{64})/cancel$#', $path, $matches)) {
+    $token = (string) $matches[1];
+    $result = cancelParticipant($pdo, $token);
+    
+    if ($result === 'not_found') {
+      respondError('NOT_FOUND', '申込が見つかりません', 404);
+    }
+    if ($result === 'already_cancelled') {
+      respondError('ALREADY_CANCELLED', 'すでにキャンセルされています', 409);
+    }
+    if ($result === 'event_started') {
+      respondError('EVENT_STARTED', '開始時刻を過ぎているため、キャンセルできません', 409);
+    }
+
+    respond(['status' => 'cancelled']);
+  }
+
   // 疎通確認 : APIとDBが動いているか
   if ($method === 'GET' && $path === '/api/health') {
     // DBに繋がって、簡単なSQLを実行できるか確認する
@@ -208,6 +238,17 @@ try {
     header('Allow: POST');
     respondError('METHOD_NOT_ALLOWED', '許可されていないメソッドです', 405);
   }
+  if (preg_match('#^/api/participants/([0-9a-f]{64})$#', $path)) {
+    // 使えるメソッドを伝える
+    header('Allow: GET');
+    respondError('METHOD_NOT_ALLOWED', '許可されていないメソッドです', 405);
+  }
+  if (preg_match('#^/api/participants/([0-9a-f]{64})/cancel$#', $path)) {
+    // 使えるメソッドを伝える
+    header('Allow: POST');
+    respondError('METHOD_NOT_ALLOWED', '許可されていないメソッドです', 405);
+  }
+
 } catch(Throwable $e) {
   // 詳細はログにだけ出す
   error_log($e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
