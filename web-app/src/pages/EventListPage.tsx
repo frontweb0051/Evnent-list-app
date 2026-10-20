@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { EventList } from "@/components/EventList";
-import { getEventList } from "@/api/event"
-import type { EventSearchParams } from "@/api/event"
+import { getEventList, type EventSearchParams } from "@/api/events"
 import Filter from "@/components/Filter";
 import type { EventSummary } from "@/types/event"
 

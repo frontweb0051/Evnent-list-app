@@ -1,7 +1,7 @@
 import { useState, useEffect} from "react"
 import { useParams, Link } from "react-router"
 import ContactForm from "@/components/ContactForm"
-import { getEvent } from "@/api/event"
+import { getEvent } from "@/api/events"
 import { formatDateJa, formatTimeRange } from "@/lib/format"
 import { getAvailability } from "@/lib/availability";
 import type { EventDetail } from "@/types/event"

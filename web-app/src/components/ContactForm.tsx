@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react"
-import { applyToEvent, ApiError } from "@/api/event";
+import { applyToEvent, ApiError } from "@/api/events";
 import {validate, type FormValues, type FormErrors } from "@/lib/varidate";
 
 type ContactFormProps = {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { EventSearchParams } from "@/api/event"
+import type { EventSearchParams } from "@/api/events"
 
 // onSearch は、EventSearchParams を1つ受け取る関数で、戻り値は使わない(void)
 // onSearchの親はsetParams。paramsに入る値はオブジェクト{}なのでparamsの型指定

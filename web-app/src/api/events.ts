@@ -1,4 +1,4 @@
-import type { EventSummary, EventDetail } from "@/types/event"
+import type { EventSummary, EventDetail, ParticipantInfo } from "@/types/event"
 
 // ? : この値があってもなくても良い
 export type EventSearchParams = {
@@ -64,6 +64,36 @@ export async function applyToEvent(eventId: number, input: ApplyInput):Promise<v
     method: "POST",
     headers: {"Content-Type" : "application/json"},
     body : JSON.stringify(input),
+  });
+
+  if (!res.ok) {
+    const json = await res.json().catch(() => null);
+    const e = json?.error;
+    throw new ApiError(
+      res.status,
+      e?.code ?? "UNKNOWN",
+      e?.message ?? "送信に失敗しました",
+      e?.fields ?? {}
+    )
+  }
+}
+
+export async function getParticipant(token: string): Promise<ParticipantInfo | null> {
+  const res = await fetch(`/api/participants/${token}`);
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error("申込みの取得に失敗しました");
+  }
+  const json = await res.json();
+  return json.data;
+}
+
+
+export async function cancelParticipant(token:string): Promise<void> {
+  const res = await fetch(`/api/participants/${token}/cancel`, {
+    method: 'POST',
   });
 
   if (!res.ok) {
