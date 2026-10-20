@@ -12,7 +12,8 @@ const MAX_GUESTS = 10;
 require_once __DIR__ . '/../db.php';
 require_once __DIR__ . '/../event_repository.php';
 require_once __DIR__ . '/../participant_repository.php';
-
+require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../user_repository.php';
 
 function respond(array $data, int $status = 200):never {
   // 型チェックを厳格にする宣言
@@ -139,7 +140,6 @@ try {
       respond(['message' => "申込みを受け付けました"], 201);
     }
 
-
     // バリデーションチェック
     $errors = [];
 
@@ -214,6 +214,139 @@ try {
     respond(['status' => 'cancelled']);
   }
 
+  // 新規会員登録処理
+  if ($method === 'POST' && $path === '/api/auth/register') {
+    $contentType = '';
+    if (isset($_SERVER['CONTENT_TYPE'])) {
+        $contentType = $_SERVER['CONTENT_TYPE'];
+    }
+    if (strpos($contentType, 'application/json') !== 0) {
+      respondError('BAD_REQUEST', 'リクエストの形式が正しくありません。', 400);
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+      respondError('BAD_REQUEST', 'リクエストの形式が正しくありません。', 400);
+    }
+
+    // バリデーションチェック
+    $errors = [];
+
+    $name = is_string($input['name'] ?? null) ? trim($input['name']) : "";
+    if ($name === '' || mb_strlen($name) > 100) {
+      $errors['name'] = 'お名前は1〜100文字で入力してください';
+    }
+
+    $email = is_string($input['email'] ?? null) ? trim($input['email']) : '';
+    if ($email === '' || mb_strlen($email) > 255 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+        $errors['email'] = '正しいメールアドレスを入力してください';
+    }
+
+    $password = is_string($input['password'] ?? null) ? $input['password'] : '';
+    if (strlen($password) < 8 || strlen($password) > 72) {
+        $errors['password'] = 'パスワードは8文字以上72文字以内で入力してください';
+    }
+
+    if ($errors !== []) {
+      respondError('VALIDATION_ERROR', '入力内容を確認してください', 422, $errors);
+    }
+
+    // メールアドレスは小文字にそろえる(Taro@... と taro@... を同じ人として扱うため)
+    $email = mb_strtolower($email);
+
+    $passwordHash = password_hash($password, PASSWORD_DEFAULT);
+    $userId = createUser($pdo, $name, $email, $passwordHash);
+
+    if ($userId === null) {
+      respondError('EMAIL_TAKEN', 'このメールアドレスは、すでに登録されています', 409);
+    }
+
+    // ログイン状態にして、ユーザー情報を返す
+    loginUser($userId);
+    respond([
+      'id'    => $userId,
+      'name'  => $name,
+      'email' => $email,
+      'role'  => 'user',
+    ], 201);  
+  }
+
+  // ログイン処理
+  if ($method === 'POST' && $path === '/api/auth/login') {
+    $contentType = '';
+    if (isset($_SERVER['CONTENT_TYPE'])) {
+        $contentType = $_SERVER['CONTENT_TYPE'];
+    }
+    if (strpos($contentType, 'application/json') !== 0) {
+        respondError('BAD_REQUEST', 'リクエストの形式が正しくありません。', 400);
+    }
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+      respondError('BAD_REQUEST', 'リクエストの形式が正しくありません。', 400);
+    }
+
+    // バリデーションチェック
+    $errors = [];
+
+    $email = is_string($input['email'] ?? null) ? trim($input['email']) : '';
+    if ($email === '' || mb_strlen($email) > 255 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+      $errors['email'] = '正しいメールアドレスを入力してください';
+    }
+
+    $password = is_string($input['password'] ?? null) ? $input['password'] : '';
+    if ($password === '') {
+      $errors['password'] = 'パスワードを入力してください';
+    }
+
+    if ($errors !== []) {
+      respondError('VALIDATION_ERROR', '入力内容を確認してください', 422, $errors);
+    }
+
+    $email = mb_strtolower($email);
+    $user = findUserByEmail($pdo, $email);
+
+    if ($user === null) {
+      respondError('INVALID_CREDENTIALS', 'メールアドレスまたはパスワードが正しくありません', 401);
+    }
+
+    // password_verify : 平文のパスワードをハッシュ化して一致するか確認
+    if (password_verify($password, $user['password_hash']) === false) {
+      respondError('INVALID_CREDENTIALS', 'メールアドレスまたはパスワードが正しくありません', 401);
+    }
+
+    loginUser((int) $user['id']);
+    respond([
+      'id'    => (int) $user['id'],
+      'name'  => $user['name'],
+      'email' => $user['email'],
+      'role'  => $user['role'],
+    ], 201); 
+  }
+  if ($method === 'GET' && $path === '/api/me')  {
+    $id = getLoginUserId();
+    if ($id === null) {
+      respondError('UNAUTHORIZED', 'ログインが必要です', 401);
+    }
+    $user = findUserById($pdo,$id);
+
+    if ($user === null) {
+      respondError('UNAUTHORIZED', 'ログインが必要です', 401);
+    }
+    respond($user);
+  }
+  if ($method === 'POST' && $path === '/api/auth/logout') {
+    $contentType = '';
+    if (isset($_SERVER['CONTENT_TYPE'])) {
+        $contentType = $_SERVER['CONTENT_TYPE'];
+    }
+    if (strpos($contentType, 'application/json') !== 0) {
+      respondError('BAD_REQUEST', 'リクエストの形式が正しくありません。', 400);
+    }
+    logoutUser();
+    respond(['loggedOut' => true]);
+  }
+  
   // 疎通確認 : APIとDBが動いているか
   if ($method === 'GET' && $path === '/api/health') {
     // DBに繋がって、簡単なSQLを実行できるか確認する
@@ -222,7 +355,6 @@ try {
 
     respond(['status' => 'ok']);
   }
-
   // 上記のifに引っ掛からなかった場合の処理（上の処理を通過した場合はexitされるのでここまでこない）405エラー
   // パスはあっているけどPOSTで来た時
   if ($path === '/api/events') {
@@ -239,12 +371,26 @@ try {
     respondError('METHOD_NOT_ALLOWED', '許可されていないメソッドです', 405);
   }
   if (preg_match('#^/api/participants/([0-9a-f]{64})$#', $path)) {
-    // 使えるメソッドを伝える
     header('Allow: GET');
     respondError('METHOD_NOT_ALLOWED', '許可されていないメソッドです', 405);
   }
   if (preg_match('#^/api/participants/([0-9a-f]{64})/cancel$#', $path)) {
-    // 使えるメソッドを伝える
+    header('Allow: POST');
+    respondError('METHOD_NOT_ALLOWED', '許可されていないメソッドです', 405);
+  }
+  if ($path === '/api/auth/register') {
+    header('Allow: POST');
+    respondError('METHOD_NOT_ALLOWED', '許可されていないメソッドです', 405);
+  }
+  if ($path === '/api/auth/login') {
+    header('Allow: POST');
+    respondError('METHOD_NOT_ALLOWED', '許可されていないメソッドです', 405);
+  }
+  if ($path === '/api/me') {
+    header('Allow: GET');
+    respondError('METHOD_NOT_ALLOWED', '許可されていないメソッドです', 405);
+  }
+  if ($path === '/api/auth/logout') {
     header('Allow: POST');
     respondError('METHOD_NOT_ALLOWED', '許可されていないメソッドです', 405);
   }
