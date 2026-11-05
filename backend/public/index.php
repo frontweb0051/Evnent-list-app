@@ -270,7 +270,6 @@ try {
       'role'  => 'user',
     ], 201);  
   }
-
   // ログイン処理
   if ($method === 'POST' && $path === '/api/auth/login') {
     $contentType = '';
