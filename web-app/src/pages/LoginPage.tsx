@@ -34,7 +34,7 @@ export default function LoginPage() {
 
     try {
       await login(values.email, values.password);
-      navigate("/");
+      navigate("/mypage");
     } catch (err) {
       if (err instanceof ApiError) {
         setErrorMessage(err.message);

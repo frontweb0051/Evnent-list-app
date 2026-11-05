@@ -24,17 +24,17 @@ function Header () {
 
   if (!isLoading && user === null) {
     authArea = (
-      <div className="no-user">
-        <Link to="/login">ログイン</Link>
-        <Link to="/register">会員登録</Link>
+      <div className="header-auth no-user">
+        <Link className="header-login" to="/login/">ログイン</Link>
+        <Link className="header-register" to="/register/">会員登録</Link>
       </div>
     );
   }
   if (!isLoading && user) {
     authArea = (
-      <div className="user">
-        <p>{user.name}</p>
-        <button onClick={handleLogout}>ログアウト</button>
+      <div className="header-auth user">
+        <Link className="header-user-name" to="/mypage">マイページ</Link>
+        <button className="header-logout" onClick={handleLogout}>ログアウト</button>
       </div>
     );
   }
@@ -46,8 +46,7 @@ function Header () {
         <Link to="/" className="site-logo">
           <span className="logo-dot"></span>EventHub
         </Link>
-        <a href="/">EventHub</a>
-        <nav className="site-nav">
+        <nav className="site-nav" aria-label="メインナビゲーション">
           <Link to="/" className="nav-link">イベント一覧</Link>
           <a href="#" className="nav-link">使い方</a>
           <a href="#" className="nav-cta">イベントを主催する</a>
