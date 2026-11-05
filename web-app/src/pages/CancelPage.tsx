@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useParams, Link } from "react-router"
-import { getParticipant, cancelParticipant, ApiError } from "@/api/events";
+import { getParticipant, cancelParticipant } from "@/api/events";
+import { ApiError } from "@/api/error"
 import type { ParticipantInfo } from "@/types/event";
 import { formatDateJa, formatTimeRange } from "@/lib/format";
 

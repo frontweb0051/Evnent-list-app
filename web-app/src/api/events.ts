@@ -1,4 +1,5 @@
 import type { EventSummary, EventDetail, ParticipantInfo } from "@/types/event"
+import { createApiError } from "@/api/error";
 
 // ? : この値があってもなくても良い
 export type EventSearchParams = {
@@ -37,20 +38,6 @@ export async function getEvent(id: number): Promise<EventDetail | null> {
   return json.data;
 }
 
-export class ApiError extends Error {
-  status: number;
-  code: string;
-  fields: Record<string, string>;
-
-  constructor(status: number, code: string, message: string, fields: Record<string, string> = {}) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-    this.code = code;
-    this.fields = fields;
-  }
-}
-
 export type ApplyInput = {
   name: string;
   email: string;
@@ -67,14 +54,7 @@ export async function applyToEvent(eventId: number, input: ApplyInput):Promise<v
   });
 
   if (!res.ok) {
-    const json = await res.json().catch(() => null);
-    const e = json?.error;
-    throw new ApiError(
-      res.status,
-      e?.code ?? "UNKNOWN",
-      e?.message ?? "送信に失敗しました",
-      e?.fields ?? {}
-    )
+    throw await createApiError(res, "通信に失敗しました");
   }
 }
 
@@ -97,13 +77,6 @@ export async function cancelParticipant(token:string): Promise<void> {
   });
 
   if (!res.ok) {
-    const json = await res.json().catch(() => null);
-    const e = json?.error;
-    throw new ApiError(
-      res.status,
-      e?.code ?? "UNKNOWN",
-      e?.message ?? "送信に失敗しました",
-      e?.fields ?? {}
-    )
+    throw await createApiError(res, "送信に失敗しました");
   }
 }
