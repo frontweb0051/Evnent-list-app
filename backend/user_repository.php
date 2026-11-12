@@ -20,8 +20,8 @@ function createUser(PDO $pdo, string $name, string $email, string $passwordHash)
   } catch(PDOException $e) {
     // 23505 : UNIQUE 違反のエラーコード(emailのユニーク設定のエラー受け取り箇所)
     if ($e->getCode() === '23505') {
-            return null;
-        }
+      return null;
+    }
     throw $e;
   }
 }
@@ -40,6 +40,7 @@ function findUserByEmail(PDO $pdo, string $email): ?array {
   return $user;
 }
 
+// sessionから取得したuser_id情報を元にデータベースにuserが存在するか
 function findUserById(PDO $pdo, int $id): ?array {
   $stmt = $pdo->prepare(
     'SELECT id, name, email, role

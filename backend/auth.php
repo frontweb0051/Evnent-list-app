@@ -35,6 +35,8 @@ function loginUser(int $userId): void {
   $_SESSION['user_id'] = $userId;
 }
 
+// セッションにユーザーIDが存在しているか？
+// 返り値：user_id
 function getLoginUserId(): ?int {
   startSession();
 

@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 // phpのエラー、警告を画面に出さない
-ini_set('display_error', '0');
+ini_set('display_errors', '0');
 // 代わりにログに出す
 ini_set('log_errors', '1');
 // どんな種類のエラーも記録対象にする
@@ -125,6 +125,23 @@ try {
   // フォーム送信
   if ($method === 'POST' && preg_match('#^/api/events/(\d+)/participants$#', $path, $matches)) {
     $eventId = (int) $matches[1];
+    $userId = getLoginUserId();
+    if ($userId === null) {
+      respondError('UNAUTHORIZED', 'ログインが必要です', 401);
+    }
+    $user = findUserById($pdo,$userId);
+
+    if ($user === null) {
+      respondError('UNAUTHORIZED', 'ログインが必要です', 401);
+    }
+
+    $contentType = '';
+    if (isset($_SERVER['CONTENT_TYPE'])) {
+        $contentType = $_SERVER['CONTENT_TYPE'];
+    }
+    if (strpos($contentType, 'application/json') !== 0) {
+        respondError('BAD_REQUEST', 'リクエストの形式が正しくありません。', 400);
+    }
 
     // file_get_contents() : ファイルやURLの内容を文字列として読み込む
     // 'php://input' : POSTで送信されたbody部分
@@ -143,16 +160,6 @@ try {
     // バリデーションチェック
     $errors = [];
 
-    $name = is_string($input['name'] ?? null) ? trim($input['name']) : "";
-    if ($name === '' || mb_strlen($name) > 100) {
-      $errors['name'] = 'お名前は1〜100文字で入力してください';
-    }
-
-    $email = is_string($input['email'] ?? null) ? trim($input['email']) : '';
-    if ($email === '' || mb_strlen($email) > 255 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
-        $errors['email'] = '正しいメールアドレスを入力してください';
-    }
-
     $guests = $input['guests'] ?? null;
     if (!is_int($guests) || $guests < 1 || $guests > MAX_GUESTS) {
       $errors['guests'] = '参加人数は1〜' . MAX_GUESTS . '名で指定してください';
@@ -160,25 +167,24 @@ try {
 
     $note = $input['note'] ?? '';
     if (!is_string($note) || mb_strlen($note) > 1000) {
-        $errors['note'] = '備考は1000文字以内で入力してください';
+      $errors['note'] = '備考は1000文字以内で入力してください';
     }
     
     if ($errors !== []) {
       respondError('VALIDATION_ERROR', '入力内容を確認してください', 422, $errors);
     }
 
-
     // メールアドレスは小文字にそろえる(Taro@... と taro@... を同じ人として扱うため)
-    $email = mb_strtolower($email);
+    // $email = mb_strtolower($email);
 
-    $result = createParticipant($pdo, $eventId, $name, $email, $guests, $note);
+    $result = createParticipant($pdo, $eventId, $userId, $user["name"], $user["email"], $guests, $note);
 
     if ($result === 'not_found') {
       respondError('NOT_FOUND', 'イベントが見つかりません', 404);
     } else if ($result === 'full') {
       respondError('EVENT_FULL', '残り枠が足りません', 409);
     } else if ($result === 'duplicate') {
-      respondError('ALREADY_APPLIED', 'このメールアドレスは、すでに申込済みです', 409);
+      respondError('ALREADY_APPLIED', 'このイベントには、すでに申し込み済みです', 409);
     }
 
     respond(['message' => '申し込みを受け付けました'], 201);

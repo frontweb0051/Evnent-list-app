@@ -4,6 +4,7 @@ declare(strict_types=1);
 function createParticipant(
   PDO $pdo,
   int $eventId,
+  int $userId,
   string $name,
   string $email,
   int $guests,
@@ -39,9 +40,9 @@ function createParticipant(
     // 3. 同じメールで、有効な申込がすでにあるか確認する
     $stmt = $pdo->prepare(
       'SELECT COUNT(*) FROM participants
-      WHERE event_id = :event_id AND email = :email AND status = \'confirmed\''
+      WHERE event_id = :event_id AND user_id = :user_id AND status = \'confirmed\''
     );
-    $stmt->execute([':event_id' => $eventId, ':email' => $email]);
+    $stmt->execute([':event_id' => $eventId, ':user_id' => $userId]);
 
     // fetchColumn : 集計結果を取得
     $count = (int) $stmt->fetchColumn();
@@ -57,8 +58,8 @@ function createParticipant(
     $calcelToken = bin2hex(random_bytes(32));
 
     $stmt = $pdo->prepare(
-        'INSERT INTO participants (event_id, name, email, guests, note, cancel_token)
-          VALUES (:event_id, :name, :email, :guests, :note, :cancel_token)'
+        'INSERT INTO participants (event_id, name, email, guests, note, user_id, cancel_token)
+          VALUES (:event_id, :name, :email, :guests, :note, :user_id, :cancel_token)'
     );
     $stmt->execute(
       [
@@ -67,6 +68,7 @@ function createParticipant(
         ':email'        => $email,
         ':guests'       => $guests,
         ':note'         => $note,
+        ':user_id'      => $userId,
         ':cancel_token' => $calcelToken,
       ]
     );
@@ -91,6 +93,11 @@ function createParticipant(
     if ($pdo->inTransaction()) {
       $pdo->rollBack();
     }
+    if ($e instanceof PODException) {
+      if ($e->getCode() === '23505') {
+        return 'duplicate';
+      }
+    }  
     throw $e;
   }
 }

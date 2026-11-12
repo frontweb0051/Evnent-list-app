@@ -37,9 +37,13 @@ CREATE TABLE participants (
     note         TEXT,
     cancel_token CHAR(64)     NOT NULL UNIQUE,
     status       VARCHAR(20)  NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'cancelled')),
-    user_id      BIGINT       REFERENCES users (id),
+    user_id      BIGINT       NOT NULL REFERENCES users (id),
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
+
+CREATE UNIQUE INDEX uq_participants_active ON participants (event_id, user_id) WHERE status = 'confirmed';
+
+CREATE INDEX idx_participants_event_id ON participants (event_id);
 
 INSERT INTO events
     (title, description, address, venue_name, estimated_time, participation_fee,
