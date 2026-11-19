@@ -174,9 +174,6 @@ try {
       respondError('VALIDATION_ERROR', '入力内容を確認してください', 422, $errors);
     }
 
-    // メールアドレスは小文字にそろえる(Taro@... と taro@... を同じ人として扱うため)
-    // $email = mb_strtolower($email);
-
     $result = createParticipant($pdo, $eventId, $userId, $user["name"], $user["email"], $guests, $note);
 
     if ($result === 'not_found') {
